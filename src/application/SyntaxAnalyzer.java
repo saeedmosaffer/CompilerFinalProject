@@ -8,35 +8,15 @@ import java.util.Set;
 public class SyntaxAnalyzer {
 	private List<Token> tokenList;
 	private int currentIndex;
-	private static final Set<String> FIRST_CONST_DECLERE = new HashSet<>(Arrays.asList("const"));
-	private static final Set<String> FOLLOW_CONST_DECLERE = new HashSet<>(Arrays.asList("var", "procedure", "begin"));
+	private String procedureName;
 
-	private static final Set<String> FIRST_VAR_DECL = new HashSet<>(Arrays.asList("var"));
-	private static final Set<String> FOLLOW_VAR_DECL = new HashSet<>(Arrays.asList("procedure", "begin"));
-
-	private static final Set<String> FIRST_STATEMENT = new HashSet<>(
-			Arrays.asList("name", "readint", "readreal", "readchar", "readln", "writeint", "writereal", "writechar",
-					"writeln", "if", "while", "loop", "exit", "call"));
-
-	private static final Set<String> FOLLOW_STATEMENT = new HashSet<>(
-			Arrays.asList(";", "elseif", "else", "end", "until"));
-
-	private static final Set<String> FIRST_ADD_OPERAND = new HashSet<>(Arrays.asList("+", "-"));
-	private static final Set<String> FIRST_MUL_OPERAND = new HashSet<>(Arrays.asList("*", "/", "mod", "div"));
-
-	private static final Set<String> FIRST_ELSE = new HashSet<>(Arrays.asList("else"));
-	private static final Set<String> FOLLOW_ELSE = new HashSet<>(Arrays.asList("end"));
-	private static String moduleName = "";
-	private static String procedureName = "";
-
-	public SyntaxAnalyzer(List<Token> tokenList) {
-		this.tokenList = tokenList;
+	public SyntaxAnalyzer(List<Token> tokens) {
+		this.tokenList = tokens;
 		this.currentIndex = 0;
 	}
 
 	public void analyzeSyntax() {
-		moduleDeclaration();
-
+		processModuleDeclaration();
 	}
 
 	private Token getCurrentToken() {
@@ -47,89 +27,99 @@ public class SyntaxAnalyzer {
 		currentIndex++;
 	}
 
-	private void moduleDeclaration() {
-		moduleHeader();
+	private void processModuleDeclaration() {
+		processModuleHeader();
 		declareVariables();
-		procedureDeclaration();
-		codeBlock();
-		analyzeSyntaxName();
-		if (!tokenList.get(currentIndex - 1).getTextValue().equals(moduleName)) {
-			error("module name in heading and in the ending is not mathced !");
+		processProcedureDeclaration();
+		processCodeBlock();
+		analyzeModuleName();
+		if (!tokenList.get(currentIndex - 1).getTextValue().equals(currentModuleName)) {
+			error("Module name in the header and at the end does not match!");
 		}
 
 		if (currentIndex == tokenList.size()) {
-			error("missing . at end of programm in line " + tokenList.get(currentIndex - 1).getLineNumber());
+			error("Missing '.' at the end of the program in line " + tokenList.get(currentIndex - 1).getLineNumber());
 		}
 		match(".");
 		if (currentIndex < tokenList.size()) {
-			error("code must be ended after . but found addtional code in line "
+			error("Code must end after '.', but additional code found in line "
 					+ tokenList.get(currentIndex).getLineNumber());
 		}
-
 	}
 
-	private void moduleHeader() {
+	private static String currentModuleName = "";
+
+	private void processModuleHeader() {
 		match("module");
-		moduleName = tokenList.get(currentIndex).getTextValue();
-		analyzeSyntaxName();
+		currentModuleName = tokenList.get(currentIndex).getTextValue();
+		analyzeModuleName();
 		match(";");
+	}
+
+	private void analyzeModuleName() {
+		// TODO Auto-generated method stub
 
 	}
 
 	private void declareVariables() {
-		constDecl();
-		varDecl();
+		processConstDeclaration();
+		processVarDeclaration();
 	}
 
-	private void constDecl() {
-		if (FIRST_CONST_DECLERE.contains(getCurrentToken().getTextValue())) {
+	Set<String> FIRST_CONST_DECLARE = new HashSet<>(Arrays.asList("const"));
+	Set<String> FOLLOW_CONST_DECLARE = new HashSet<>(Arrays.asList("var", "procedure", "begin"));
+
+	private void processConstDeclaration() {
+		if (FIRST_CONST_DECLARE.contains(getCurrentToken().getTextValue())) {
 			match("const");
-			constList();
-		} else if (FOLLOW_CONST_DECLERE.contains(getCurrentToken().getTextValue())) {
+			processConstList();
+		} else if (FOLLOW_CONST_DECLARE.contains(getCurrentToken().getTextValue())) {
 
 		} else {
 			int line = getCurrentToken().getLineNumber();
-			error("Unexpected token " + tokenList.get(currentIndex).getTextValue() + " in const-decl at line " + line);
+			error("Unexpected token " + tokenList.get(currentIndex).getTextValue() + " in const-declaration at line "
+					+ line);
 		}
 	}
 
-	private void varDecl() {
-		if (FIRST_VAR_DECL.contains(getCurrentToken().getTextValue())) {
+	Set<String> FIRST_VAR_DECLARE = new HashSet<>(Arrays.asList("var"));
+	Set<String> FOLLOW_VAR_DECLARE = new HashSet<>(Arrays.asList("procedure", "begin"));
+
+	private void processVarDeclaration() {
+		if (FIRST_VAR_DECLARE.contains(getCurrentToken().getTextValue())) {
 			match("var");
-			varList();
-		} else if (FOLLOW_VAR_DECL.contains(getCurrentToken().getTextValue())) {
+			processVarList();
+		} else if (FOLLOW_VAR_DECLARE.contains(getCurrentToken().getTextValue())) {
 
 		} else {
-
 			int line = getCurrentToken().getLineNumber();
-			error("Unexpected token in var-decl at line " + line);
+			error("Unexpected token in var-declaration at line " + line);
 		}
 	}
 
-	private void constList() {
+	private void processConstList() {
 		while (tokenList.get(currentIndex).getTokenType().equals("name")) {
 			analyzeSyntaxName();
 			match("=");
-			value();
+			processDataType();
 			match(";");
 		}
 	}
 
-	private void varList() {
+	private void processVarList() {
 		while (tokenList.get(currentIndex).getTokenType().equals("name")) {
-			varItem();
+			processVarItem();
 			match(";");
-
 		}
 	}
 
-	private void varItem() {
-		nameList();
+	private void processVarItem() {
+		processNameList();
 		match(":");
-		dataType();
+		processDataType();
 	}
 
-	void dataType() {
+	private void processDataType() {
 		if (tokenList.get(currentIndex).getTextValue().equals("integer")) {
 			match("integer");
 		} else if (tokenList.get(currentIndex).getTextValue().equals("real")) {
@@ -139,87 +129,87 @@ public class SyntaxAnalyzer {
 		} else {
 			Token current = tokenList.get(currentIndex);
 			int line = findLine(current);
-			error("data type " + tokenList.get(currentIndex).getTextValue() + " is unvalid in line: " + line);
-
+			error("Data type " + tokenList.get(currentIndex).getTextValue() + " is invalid in line: " + line);
 		}
 	}
 
-	private void nameList() {
+	private void processNameList() {
 		analyzeSyntaxName();
 		while (tokenList.get(currentIndex).getTextValue().equals(",")) {
 			currentIndex++;
 			analyzeSyntaxName();
 		}
-
 	}
 
-	private void procedureDeclaration() {
+	private void processProcedureDeclaration() {
+		String currentProcedureName = "";
 		procedureHeading();
 		declareVariables();
-		codeBlock();
-		analyzeSyntaxName();
-		if (!tokenList.get(currentIndex - 1).getTextValue().equals(procedureName)) {
-			error("procedure name in procedure begging and in the procedure ending is not mathced !");
+		processCodeBlock();
+		analyzeModuleName();
+		if (!tokenList.get(currentIndex - 1).getTextValue().equals(currentProcedureName)) {
+			error("Procedure name in procedure header and at the end does not match!");
 		}
 		match(";");
-
 	}
 
-	private void codeBlock() {
+	private void processCodeBlock() {
 		match("begin");
-		statementList();
+		processStatementList();
 		match("end");
 	}
 
-	private void statementList() {
-		statement();
+	private void processStatementList() {
+		processStatement();
 
 		while (tokenList.get(currentIndex).getTextValue().equals(";")) {
-
 			match(";");
-			statement();
+			processStatement();
 		}
 	}
 
-	private void statement() {
-		if (FIRST_STATEMENT.contains(getCurrentToken().getTextValue()) || getCurrentToken().getTokenType().equals("name")) {
+	Set<String> FIRST_STATEMENT = new HashSet<>(Arrays.asList("name", "readint", "readreal", "readchar", "readln",
+			"writeint", "writereal", "writechar", "writeln", "if", "while", "loop", "exit", "call"));
 
+	Set<String> FOLLOW_STATEMENT = new HashSet<>(Arrays.asList(";", "elseif", "else", "end", "until"));
+
+	private void processStatement() {
+		if (FIRST_STATEMENT.contains(getCurrentToken().getTextValue())
+				|| getCurrentToken().getTokenType().equals("name")) {
 			if (tokenList.get(currentIndex).getTokenType().equals("name")) {
-
-				assStmt();
+				processAssignmentStatement();
 			} else if (tokenList.get(currentIndex).getTextValue().equals("readint")) {
 				match("readint");
 				match("(");
-				nameList();
+				processNameList();
 				match(")");
 			} else if (tokenList.get(currentIndex).getTextValue().equals("readreal")) {
 				match("readreal");
 				match("(");
-				nameList();
+				processNameList();
 				match(")");
-
 			} else if (tokenList.get(currentIndex).getTextValue().equals("readchar")) {
 				match("readchar");
 				match("(");
-				nameList();
+				processNameList();
 				match(")");
 			} else if (tokenList.get(currentIndex).getTextValue().equals("readln")) {
 				match("readln");
 			} else if (tokenList.get(currentIndex).getTextValue().equals("writeint")) {
 				match("writeint");
 				match("(");
-				writeList();
+				processNameList();
 				match(")");
 			} else if (tokenList.get(currentIndex).getTextValue().equals("writereal")) {
 				match("writereal");
 				match("(");
-				writeList();
+				processNameList();
 				match(")");
 
 			} else if (tokenList.get(currentIndex).getTextValue().equals("writechar")) {
 				match("writechar");
 				match("(");
-				writeList();
+				processNameList();
 				match(")");
 			} else if (tokenList.get(currentIndex).getTextValue().equals("writeln")) {
 				match("writeln");
@@ -228,29 +218,30 @@ public class SyntaxAnalyzer {
 				match("while");
 				condition();
 				match("do");
-				statementList();
+				processStatementList();
 
 				match("end");
 			} else if (tokenList.get(currentIndex).getTextValue().equals("if")) {
 				match("if");
 				condition();
 				match("then");
-				statementList();
+				processStatementList();
 				elseIfPart();
 				elsePart();
 				match("end");
 			} else if (tokenList.get(currentIndex).getTextValue().equals("loop")) {
 				match("loop");
-				statementList();
+				processStatementList();
 				match("until");
 				condition();
 			} else if (tokenList.get(currentIndex).getTextValue().equals("exit")) {
 				match("exit");
 			} else if (tokenList.get(currentIndex).getTextValue().equals("call")) {
 				match("call");
-				if(!procedureName.equals(tokenList.get(currentIndex).getTextValue())) {
+				if (!currentProcedureName.equals(tokenList.get(currentIndex).getTextValue())) {
 					int line = getCurrentToken().getLineNumber();
-					error("procedure name after call " + getCurrentToken().getTextValue() + " in line  " + line+" not match the procedure name");
+					error("procedure name after call " + getCurrentToken().getTextValue() + " in line  " + line
+							+ " not match the procedure name");
 				}
 				analyzeSyntaxName();
 			}
@@ -263,102 +254,30 @@ public class SyntaxAnalyzer {
 		}
 	}
 
-	private void elseIfPart() {
-		while (tokenList.get(currentIndex).getTextValue().equals("elseif")) {
-			match("elseif");
-			condition();
-			match("then");
-			statementList();
-		}
-	}
+	// ... other methods
 
-	private void elsePart() {
-		if (FIRST_ELSE.contains(getCurrentToken().getTextValue())) {
-			match("else");
-			statementList();
-		} else if (FOLLOW_ELSE.contains(getCurrentToken().getTextValue())) {
-
-		} else {
-			int line = getCurrentToken().getLineNumber();
-			error("Unexpected token in else-part at line " + line);
-		}
-	}
-
-	private void writeList() {
-		writeItem();
-		while (tokenList.get(currentIndex).getTextValue().equals(",")) {
-			match(",");
-			writeItem();
-		}
-	}
-
-	private void writeItem() {
-		if (tokenList.get(currentIndex).getTokenType().equals("name")) {
-			analyzeSyntaxName();
-		} else if (tokenList.get(currentIndex).getTokenType().equals("intger")
-				|| tokenList.get(currentIndex).getTokenType().equals("real")) {
-			value();
-		} else {
-			int line = getCurrentToken().getLineNumber();
-			error("unvalid write item " + getCurrentToken().getTextValue() + "  in line " + line);
-		}
-	}
-
-	private void condition() {
-		nameValue();
-		realtionalOper();
-		nameValue();
-	}
-
-	private void nameValue() {
-		if (tokenList.get(currentIndex).getTokenType().equals("name")) {
-			analyzeSyntaxName();
-		} else if (tokenList.get(currentIndex).getTokenType().equals("intger")
-				|| tokenList.get(currentIndex).getTokenType().equals("real")) {
-			value();
-		} else {
-			int line = getCurrentToken().getLineNumber();
-			error("unvalid name or value " + getCurrentToken().getTextValue() + "  in line " + line);
-		}
-	}
-
-	private void realtionalOper() {
-		if (tokenList.get(currentIndex).getTextValue().equals("=")) {
-			match("=");
-		} else if (tokenList.get(currentIndex).getTextValue().equals("|=")) {
-			match("|=");
-		} else if (tokenList.get(currentIndex).getTextValue().equals("<")) {
-			match("<");
-		} else if (tokenList.get(currentIndex).getTextValue().equals("<=")) {
-			match("<=");
-		} else if (tokenList.get(currentIndex).getTextValue().equals(">")) {
-			match(">");
-		} else if (tokenList.get(currentIndex).getTextValue().equals(">=")) {
-			match(">=");
-		} else {
-			int line = getCurrentToken().getLineNumber();
-			error("openaration (" + getCurrentToken().getTextValue() + ")  at line " + line + " is unvalid");
-		}
-	}
-
-	private void assStmt() {
+	private void processAssignmentStatement() {
 		analyzeSyntaxName();
 		match(":=");
-		exp();
+		processExpression();
 	}
 
-	private void exp() {
-		term();
-		expRecursive();
+	private void processExpression() {
+		processVarItem();
+		processExpressionRecursive();
 	}
 
-	private void expRecursive() {
+	Set<String> FIRST_ADD_OPERAND = new HashSet<>(Arrays.asList("+", "-"));
 
+	private void processExpressionRecursive() {
 		if (FIRST_ADD_OPERAND.contains(getCurrentToken().getTextValue())) {
-			addOper();
-			term();
-			expRecursive();
+			processAdditionOperator();
+			processVarItem();
+			processExpressionRecursive();
 		}
+	}
+
+	private void processAdditionOperator() {
 
 	}
 
@@ -366,6 +285,8 @@ public class SyntaxAnalyzer {
 		factor();
 		termRecursive();
 	}
+
+	Set<String> FIRST_MUL_OPERAND = new HashSet<>(Arrays.asList("*", "/", "mod", "div"));
 
 	private void termRecursive() {
 		if (FIRST_MUL_OPERAND.contains(getCurrentToken().getTextValue())) {
@@ -406,7 +327,6 @@ public class SyntaxAnalyzer {
 	private void factor() {
 		if (tokenList.get(currentIndex).getTextValue().equals("(")) {
 			match("(");
-			exp();
 			match(")");
 		} else if (tokenList.get(currentIndex).getTokenType().equals("name")) {
 			analyzeSyntaxName();
@@ -524,14 +444,15 @@ public class SyntaxAnalyzer {
 						} else {
 							Token current = tokenList.get(currentIndex);
 							int line = findLine(current);
-							error("error value " + tokenList.get(currentIndex).getTextValue() + " is not valid in line : "
-									+ line);
+							error("error value " + tokenList.get(currentIndex).getTextValue()
+									+ " is not valid in line : " + line);
 						}
 					}
 				} else {
 					Token current = tokenList.get(currentIndex);
 					int line = findLine(current);
-					error("error value " + tokenList.get(currentIndex).getTextValue() + "is not valid in line : " + line);
+					error("error value " + tokenList.get(currentIndex).getTextValue() + "is not valid in line : "
+							+ line);
 
 				}
 			}
@@ -549,8 +470,8 @@ public class SyntaxAnalyzer {
 		} else {
 			Token current = tokenList.get(currentIndex);
 			int line = findLine(current);
-			error("ecpext ( " + expected + " ) but found ( " + tokenList.get(currentIndex).getTextValue() + " ) in line "
-					+ line);
+			error("ecpext ( " + expected + " ) but found ( " + tokenList.get(currentIndex).getTextValue()
+					+ " ) in line " + line);
 		}
 	}
 
@@ -561,5 +482,4 @@ public class SyntaxAnalyzer {
 	int findLine(Token t) {
 		return tokenList.get(currentIndex).getLineNumber();
 	}
-
 }
