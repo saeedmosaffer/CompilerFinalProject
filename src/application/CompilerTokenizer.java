@@ -9,14 +9,6 @@ import java.util.regex.Pattern;
 
 public class CompilerTokenizer {
     private static int tokenCounter = 0;
-
-    private static final String[] KEYWORDS = { "module", "begin", "end", "const", "var", "integer", "real", "char",
-            "procedure", "mod", "div", "readint", "readreal", "readchar", "readln", "writeint", "writereal",
-            "writechar", "writeln", "then", "end", "if", "elseif", "else", "while", "do", "end", "loop", "until",
-            "exit", "call" };
-    private static final String[] SYMBOLS = { ".", ";", "=", "*", ":", "(", ")", ":=", "+", "-", "/", ",", "=", "|=",
-            "<", "<=", ">", ">=" };
-
     static ArrayList<Token> tokensList = new ArrayList<>();
 
     public static void tokenizeFile(String fileName) throws IOException {
@@ -124,6 +116,8 @@ public class CompilerTokenizer {
         return "";
     }
 
+    static String[] SYMBOLS = { "<", "<=", ">", ">=", ".", ";", "*", ":", "(", ")", ":=", "+", "-", "/", "=", ",", "=",
+			"|=" };
     private static boolean isSymbol(String word) {
         for (String symbol : SYMBOLS) {
             if (word.equals(symbol)) {
@@ -133,9 +127,13 @@ public class CompilerTokenizer {
         return false;
     }
 
+    static String[] RESERVED_WORDS = { "begin", "end", "const", "var", "real", "char", "mod", "div", "readint",
+			"readchar", "readln", "writeint", "writereal", "writechar", "writeln", "then", "readreal", "end", "if",
+			"elseif", "else", "module", "while", "integer", "do", "procedure", "end", "loop", "until", "exit", "call" };
+
     private static boolean isKeyword(String word) {
-        for (String keyword : KEYWORDS) {
-            if (word.equals(keyword)) {
+        for (String keyword : RESERVED_WORDS) {
+            if (word.equals(RESERVED_WORDS)) {
                 return true;
             }
         }
