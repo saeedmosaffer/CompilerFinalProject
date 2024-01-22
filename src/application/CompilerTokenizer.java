@@ -8,169 +8,114 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class CompilerTokenizer {
-    private static int tokenCounter = 0;
-    static ArrayList<Token> tokensList = new ArrayList<>();
 
-    public static void tokenizeFile(String fileName) throws IOException {
-        String line;
-        int lineNumber = 0;
-        BufferedReader reader = new BufferedReader(new FileReader(fileName));
+	static int tokenCounter = 0;
+	static ArrayList<Token> customTokenList = new ArrayList<>();
 
-        while ((line = reader.readLine()) != null) {
-            lineNumber++;
-            String[] words = line.split("\\s+|(?<=[^a-zA-Z0-9\\.])|(?=[^a-zA-Z0-9\\.])");
+	public static void processFile(String fileName) throws IOException {
+		String line = "";
+		int lineNumber = 0;
+		BufferedReader fileReader = new BufferedReader(new FileReader(fileName));
 
-            for (String word : words) {
-                String token = word.trim();
-                if (!token.isEmpty()) {
-                    processToken(token, lineNumber);
-                }
-            }
-        }
+		while ((line = fileReader.readLine()) != null) {
+			lineNumber++;
+			String[] tokens = line.split("\\s+|(?<=[^a-zA-Z0-9\\.])|(?=[^a-zA-Z0-9\\.])");
 
-        reader.close();
-    }
+			for (int i = 0; i < tokens.length; i++) {
+				String currentToken = tokens[i].trim();
 
-    private static void processToken(String token, int lineNumber) {
-        if (!isSymbol(token) && !isKeyword(token)) {
-            handleNonSymbolNonKeyword(token, lineNumber);
-        } else {
-            handleSymbolOrKeyword(token, lineNumber);
-        }
-    }
+				if (!currentToken.isEmpty()) {
+					if (!currentToken.equals(":") && !currentToken.equals("<") && !currentToken.equals(">")
+							&& !currentToken.equals("|")) {
+						if (currentToken.contains(".")) {
+							char[] tokenChars = currentToken.toCharArray();
 
-    private static void handleNonSymbolNonKeyword(String token, int lineNumber) {
-        if (token.contains(".")) {
-            processRealNumber(token, lineNumber);
-        } else {
-            processIdentifierOrInteger(token, lineNumber);
-        }
-    }
+							if (Character.isDigit(currentToken.charAt(0))) {
+								Token realToken = new Token(currentToken, lineNumber, "Real");
+								customTokenList.add(realToken);
+								continue;
+							} else {
+								currentToken = currentToken.substring(0, currentToken.length() - 1);
+								Token nameToken = new Token(currentToken, lineNumber, "Name");
+								Token dotToken = new Token(".", lineNumber, "Symbol");
+								customTokenList.add(nameToken);
+								customTokenList.add(dotToken);
+								continue;
+							}
+						}
 
-    private static void processRealNumber(String token, int lineNumber) {
-        char[] chars = token.toCharArray();
-        if (Character.isDigit(chars[0])) {
-            Token t = new Token(token, lineNumber, "real");
-            tokensList.add(t);
-        } else {
-            String identifier = token.substring(0, token.length() - 1);
-            Token t1 = new Token(identifier, lineNumber, "identifier");
-            Token t2 = new Token(".", lineNumber, "symbol");
-            tokensList.add(t1);
-            tokensList.add(t2);
-        }
-    }
+						Token newToken = new Token(currentToken, lineNumber,
+								determineTokenType(currentToken, lineNumber));
+						customTokenList.add(newToken);
+						tokenCounter++;
+					} else {
+						if (currentToken.equals(":")) {
+							if ((i + 1) < tokens.length && tokens[i + 1].equals("=")) {
+								i++;
+								String combinedToken = currentToken + tokens[i];
+								Token combinedTokenObj = new Token(combinedToken, lineNumber,
+										determineTokenType(combinedToken, lineNumber));
+								customTokenList.add(combinedTokenObj);
+								tokenCounter++;
+							} else {
+								Token singleToken = new Token(currentToken, lineNumber,
+										determineTokenType(currentToken, lineNumber));
+								customTokenList.add(singleToken);
+								tokenCounter++;
+							}
+						} else if (currentToken.equals("<") || currentToken.equals(">") || currentToken.equals("|")) {
+							if ((i + 1) < tokens.length && tokens[i + 1].equals("=")) {
+								i++;
+								String combinedToken = currentToken + tokens[i];
+								Token combinedTokenObj = new Token(combinedToken, lineNumber,
+										determineTokenType(combinedToken, lineNumber));
+								customTokenList.add(combinedTokenObj);
+								tokenCounter++;
+							} else {
+								Token singleToken = new Token(currentToken, lineNumber,
+										determineTokenType(currentToken, lineNumber));
+								customTokenList.add(singleToken);
+								tokenCounter++;
+							}
+						}
+					}
+				}
+			}
+		}
 
-    private static void processIdentifierOrInteger(String token, int lineNumber) {
-        if (isNumericValue(token)) {
-            Token t = new Token(token, lineNumber, "integer");
-            tokensList.add(t);
-        } else {
-            Token t = new Token(token, lineNumber, findType(token, lineNumber));
-            tokensList.add(t);
-            tokenCounter++;
-        }
-    }
+		fileReader.close();
+	}
 
-    private static void handleSymbolOrKeyword(String token, int lineNumber) {
-        if (token.equals(":") || token.equals("<") || token.equals(">") || token.equals("|")) {
-            handleSpecialSymbols(token, lineNumber);
-        } else {
-            Token t = new Token(token, lineNumber, findType(token, lineNumber));
-            tokensList.add(t);
-            tokenCounter++;
-        }
-    }
+	private static String determineTokenType(String tokenText, int line) {
+		String[] KEYWORDS = { "writeln", "then", "end", "const", "var", "integer", "while", "do", "end", "real", "char",
+				"procedure", "mod", "div", "readint", "readreal", "readchar", "readln", "writeint", "writereal",
+				"writechar", "if", "elseif", "else", "module", "begin", "end", "loop", "until", "exit", "call" };
+		for (String reservedWord : KEYWORDS) {
+			if (tokenText.equals(reservedWord)) {
+				return "ReservedWordType";
+			}
+		}
 
-    private static void handleSpecialSymbols(String token, int lineNumber) {
-        if (token.equals(":") || token.equals("<") || token.equals(">")) {
-            handleDoubleSymbols(token, lineNumber);
-        } else {
-            Token t = new Token(token, lineNumber, findType(token, lineNumber));
-            tokensList.add(t);
-            tokenCounter++;
-        }
-    }
+		String[] symbols = { "<", "<=", ">", ">=", "*", ":", "(", ")", ":=", "+", "-", "/", ".", ";", "=", ",", "=",
+				"|=" };
+		for (String symbol : symbols) {
+			if (tokenText.equals(symbol)) {
+				return "SymbolType";
+			}
+		}
 
-    private static void handleDoubleSymbols(String token, int lineNumber) {
-        if (token.equals(":") || token.equals("<") || token.equals(">")) {
-            String nextToken = getNextToken();
-            if (!nextToken.isEmpty()) {
-                String combinedToken = token + nextToken;
-                Token t = new Token(combinedToken, lineNumber, findType(combinedToken, lineNumber));
-                tokensList.add(t);
-                tokenCounter++;
-            } else {
-                Token t = new Token(token, lineNumber, findType(token, lineNumber));
-                tokensList.add(t);
-                tokenCounter++;
-            }
-        }
-    }
+		Pattern namePattern = Pattern.compile("^[a-zA-Z]+[a-zA-Z0-9]*$");
+		Matcher nameMatcher = namePattern.matcher(tokenText);
+		if (nameMatcher.matches()) {
+			return "IdentifierType";
+		}
 
-    private static String getNextToken() {
-        if (tokenCounter < tokensList.size() - 1) {
-            tokenCounter++;
-            return tokensList.get(tokenCounter).getTokenType();
-        }
-        return "";
-    }
+		try {
+			Double.parseDouble(tokenText);
+			return "IntegerType";
+		} catch (NumberFormatException e) {
+			throw new RuntimeException("Error: Unknown token encountered - " + tokenText + " at line " + line);
+		}
+	}
 
-    static String[] SYMBOLS = { "<", "<=", ">", ">=", ".", ";", "*", ":", "(", ")", ":=", "+", "-", "/", "=", ",", "=",
-			"|=" };
-    private static boolean isSymbol(String word) {
-        for (String symbol : SYMBOLS) {
-            if (word.equals(symbol)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    static String[] RESERVED_WORDS = { "begin", "end", "const", "var", "real", "char", "mod", "div", "readint",
-			"readchar", "readln", "writeint", "writereal", "writechar", "writeln", "then", "readreal", "end", "if",
-			"elseif", "else", "module", "while", "integer", "do", "procedure", "end", "loop", "until", "exit", "call" };
-
-    private static boolean isKeyword(String word) {
-        for (String keyword : RESERVED_WORDS) {
-            if (word.equals(RESERVED_WORDS)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static boolean isIdentifier(String word) {
-        Pattern pattern = Pattern.compile("^[a-zA-Z]+[a-zA-Z0-9]*$");
-        Matcher matcher = pattern.matcher(word);
-        return matcher.matches();
-    }
-
-    private static boolean isNumericValue(String word) {
-        try {
-            Double.parseDouble(word);
-            return true;
-        } catch (NumberFormatException e) {
-            return false;
-        }
-    }
-
-    private static String findType(String text, int line) {
-        if (isKeyword(text)) {
-            return "keyword";
-        } else if (isSymbol(text)) {
-            return "symbol";
-        } else if (isNumericValue(text)) {
-            return "integer";
-        } else if (isIdentifier(text)) {
-            return "identifier";
-        } else {
-            reportError("unknown token: " + text + " in line " + line);
-            return "unknown";
-        }
-    }
-
-    private static void reportError(String message) {
-        throw new RuntimeException("Error: " + message);
-    }
 }
